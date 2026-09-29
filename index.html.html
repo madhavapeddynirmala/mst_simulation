@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MST Interactive Simulation - Prim's & Kruskal's</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f5f7fb;color:#1f2937}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px}
+  h1{margin:0 0 6px;font-size:28px}
+  .sub{margin:0 0 18px;color:#64748b}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:white;padding:14px;border-radius:12px;box-shadow:0 2px 10px #00000012}
+  button,select{font:inherit;padding:9px 13px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer}
+  button.primary{background:#1f2937;color:white;border-color:#1f2937}
+  button:hover{filter:brightness(.97)}
+  .layout{display:grid;grid-template-columns:1.25fr .9fr;gap:16px;margin-top:16px}
+  .card{background:white;border-radius:12px;box-shadow:0 2px 10px #00000012;padding:16px}
+  svg{width:100%;height:auto;background:#fbfcfe;border-radius:10px;border:1px solid #e2e8f0}
+  .edge{stroke:#94a3b8;stroke-width:4}
+  .edge.selected{stroke:#16a34a;stroke-width:7}
+  .edge.rejected{stroke:#dc2626;stroke-width:6;stroke-dasharray:10 8}
+  .edge.candidate{stroke:#f59e0b;stroke-width:7;stroke-dasharray:12 7}
+  .edge.path{stroke:#7c3aed;stroke-width:8}
+  .node{fill:white;stroke:#334155;stroke-width:3}
+  .node.active{fill:#dbeafe;stroke:#2563eb}
+  .node.mst{fill:#dcfce7;stroke:#16a34a}
+  .nodeText{font-size:18px;font-weight:700;text-anchor:middle;dominant-baseline:middle}
+  .weight{font-size:16px;font-weight:700;fill:#111827;text-anchor:middle}
+  .stepTitle{font-size:21px;font-weight:700;margin:0 0 7px}
+  .message{font-size:17px;line-height:1.45;padding:12px;border-radius:9px;background:#f1f5f9}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+  .stat{padding:10px;background:#f8fafc;border-radius:8px}
+  .stat b{display:block;font-size:20px}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+  th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}
+  th{background:#f8fafc}
+  .yes{color:#15803d;font-weight:700}.no{color:#b91c1c;font-weight:700}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:13px}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .green{background:#16a34a}.red{background:#dc2626}.orange{background:#f59e0b}.gray{background:#94a3b8}.purple{background:#7c3aed}
+  .note{font-size:13px;color:#64748b;margin-top:10px}
+  .customBuilder{background:white;border-radius:12px;box-shadow:0 2px 10px #00000012;padding:16px;margin-top:16px}
+  .builderHead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .builderHead h2{font-size:19px;margin:0 0 4px}
+  .builderHead p{margin:0;color:#64748b;font-size:14px}
+  .builderGrid{display:grid;grid-template-columns:.7fr 1.8fr;gap:12px;margin-top:12px}
+  .builderGrid label{font-size:13px;font-weight:700}
+  .builderGrid input,.builderGrid textarea{display:block;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:inherit;font-weight:400;resize:vertical}
+  .builderActions{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:10px}
+  #builderMsg{font-size:13px;color:#15803d}
+  @media(max-width:850px){.builderGrid{grid-template-columns:1fr}}
+  @media(max-width:850px){.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Minimum Spanning Tree — Interactive Simulation</h1>
+  <p class="sub">Classroom demonstration of Prim's and Kruskal's algorithms. Use <b>Next Step</b> to reveal the algorithm one decision at a time.</p>
+
+  <div class="toolbar">
+    <label>Algorithm:
+      <select id="algo">
+        <option value="prim">Prim's Algorithm</option>
+        <option value="kruskal">Kruskal's Algorithm</option>
+        <option value="dijkstra">Dijkstra's Shortest Path</option>
+      </select>
+    </label>
+    <label id="startWrap">Start vertex:
+      <select id="start"></select>
+    </label>
+    <span id="destWrap" style="display:none"></span>
+    <button class="primary" id="next">Next Step ▶</button>
+    <button id="prev">◀ Previous</button>
+    <button id="reset">Reset</button>
+  </div>
+
+  <div class="customBuilder">
+    <div class="builderHead">
+      <div>
+        <h2>Build Your Own Graph</h2>
+        <p>Enter vertices and weighted edges for your classroom graph.</p>
+      </div>
+      <button id="toggleBuilder">Hide</button>
+    </div>
+    <div id="builderBody">
+      <div class="builderGrid">
+        <label>Vertices
+          <input id="verticesInput" value="A,B,C,D,E" placeholder="A,B,C,D,E">
+        </label>
+        <label>Edges
+          <textarea id="edgesInput" rows="4" placeholder="A-B=4, A-C=2, B-C=3, C-D=1">A-B=4, A-C=5, A-E=2, B-C=3, B-E=6, C-D=1, C-E=7, D-E=8</textarea>
+        </label>
+      </div>
+      <div class="builderActions">
+        <button class="primary" id="generateGraph">Generate Graph</button>
+        <button id="sampleGraph">Load Sample Graph</button>
+        <span id="builderMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <svg id="graph" viewBox="0 0 720 480" preserveAspectRatio="xMidYMid meet" aria-label="Weighted graph">
+        <g id="edges"></g>
+        <g id="weights"></g>
+        <g id="nodes"></g>
+      </svg>
+      <div class="legend">
+        <span><i class="dot gray"></i>Unprocessed</span>
+        <span><i class="dot orange"></i>Candidate edges</span>
+        <span><i class="dot green"></i>Selected MST edge</span>
+        <span><i class="dot red"></i>Rejected edge</span>
+        <span><i class="dot purple"></i>Shortest-path edge</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stepTitle" id="stepTitle">Ready</div>
+      <div class="message" id="message">Choose an algorithm and click <b>Next Step</b>. Decisions will appear in the log one step at a time.</div>
+
+      <div class="stats">
+        <div class="stat">Step<b id="stepNo">0</b></div>
+        <div class="stat"><span id="totalLabel">MST weight</span><b id="total">0</b></div>
+      </div>
+
+      <h3>Decision Log — Up to Current Step</h3>
+      <table>
+        <thead><tr><th>#</th><th>Edge</th><th>Wt.</th><th id="decisionHead">Decision</th><th>Reason</th></tr></thead>
+        <tbody id="log"></tbody>
+      </table>
+      <p class="note">Tip for teaching: pause after each step and ask students to predict the next edge or distance update before clicking.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+let V = ["A","B","C","D","E"];
+let edges = [
+  ["A","B",4], ["A","C",5], ["A","E",2],
+  ["B","C",3], ["B","E",6], ["C","D",1],
+  ["C","E",7], ["D","E",8]
+];
+let pos = {};
+let algo="prim", start="A", history=[], idx=0;
+
+function makePositions(vertices){
+  const cx=360, cy=235, rx=245, ry=165;
+  const out={};
+  vertices.forEach((v,i)=>{
+    const a=-Math.PI/2 + (2*Math.PI*i/vertices.length);
+    out[v]=[cx+rx*Math.cos(a), cy+ry*Math.sin(a)];
+  });
+  return out;
+}
+pos=makePositions(V);
+
+function parseGraph(){
+  const rawV=document.getElementById("verticesInput").value.trim();
+  const rawE=document.getElementById("edgesInput").value.trim();
+  const vs=[...new Set(rawV.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean))];
+  if(vs.length<2 || vs.length>10) throw new Error("Enter 2 to 10 unique vertices.");
+  const es=[];
+  const parts=rawE.split(/[,\n]+/).map(x=>x.trim()).filter(Boolean);
+  for(const p of parts){
+    const m=p.match(/^([A-Za-z0-9]+)\s*[-–—]\s*([A-Za-z0-9]+)\s*=\s*(-?\d+(?:\.\d+)?)$/);
+    if(!m) throw new Error(`Invalid edge: "${p}". Use A-B=4.`);
+    const u=m[1].toUpperCase(), v=m[2].toUpperCase(), w=Number(m[3]);
+    if(u===v) throw new Error(`Self-loop ${u}-${v} is not allowed.`);
+    if(!vs.includes(u)||!vs.includes(v)) throw new Error(`Edge ${u}-${v} uses a vertex not in the vertex list.`);
+    if(!Number.isFinite(w) || w<=0) throw new Error("Edge weights must be positive numbers.");
+    if(es.some(e=>key(e[0],e[1])===key(u,v))) throw new Error(`Duplicate edge: ${u}-${v}.`);
+    es.push([u,v,w]);
+  }
+  if(es.length<vs.length-1) throw new Error("The graph needs at least V−1 edges.");
+  V=vs; edges=es; pos=makePositions(V);
+  if(!V.includes(start)) start=V[0];
+  const startSel=document.getElementById("start");
+  startSel.innerHTML=V.map(v=>`<option>${v}</option>`).join("");
+  startSel.value=start;
+}
+
+function key(a,b){return [a,b].sort().join("-")}
+function find(parent,x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+function union(parent,a,b){a=find(parent,a);b=find(parent,b); if(a===b)return false; parent[b]=a; return true;}
+
+function buildPrim(s){
+  let states=[], visited=new Set([s]), mst=[], total=0, rejected=[];
+  states.push({mst:[...mst], total, candidate:null, rejected:[...rejected], active:[s],
+    title:"Start", msg:`Start at vertex <b>${s}</b>. The <b>orange dashed edges</b> are the candidates connecting the current tree to unvisited vertices.`});
+  while(mst.length<V.length-1){
+    let candidates=edges.filter(e=>(visited.has(e[0])&&!visited.has(e[1]))||(visited.has(e[1])&&!visited.has(e[0])));
+    candidates.sort((a,b)=>a[2]-b[2]);
+    let e=candidates[0], u=e[0],v=e[1], nv=visited.has(u)?v:u;
+    mst.push(e); total+=e[2]; visited.add(nv);
+    states.push({mst:[...mst],total,candidate:e,rejected:[...rejected],active:[...visited],
+      title:`Step ${states.length}: Select ${u}–${v}`,
+      msg:`Select <b>${u}–${v}</b> (weight ${e[2]}). It is the smallest among the <b>orange candidate edges</b> connecting the current tree to an unvisited vertex.`});
+  }
+  states.push({mst:[...mst],total,candidate:null,rejected:[...rejected],active:[...visited],
+    title:"MST Complete",msg:`All vertices are connected. The Minimum Spanning Tree has <b>${mst.length}</b> edges and total weight <b>${total}</b>.`});
+  return states;
+}
+
+function buildKruskal(){
+  let states=[], parent={}; V.forEach(v=>parent[v]=v);
+  let mst=[], total=0, rejected=[];
+  let sorted=[...edges].sort((a,b)=>a[2]-b[2]);
+  states.push({mst:[],total,candidate:null,rejected:[],active:[],
+    title:"Start",msg:"Sort all edges in increasing order of weight. The <b>orange dashed edge</b> is the edge currently being considered."});
+  for(const e of sorted){
+    const [u,v,w]=e;
+    const ok=union(parent,u,v);
+    if(ok){mst.push(e);total+=w;
+      states.push({mst:[...mst],total,candidate:e,rejected:[...rejected],active:[],
+        title:`Select ${u}–${v}`,msg:`Select <b>${u}–${v}</b> (weight ${w}). It does not create a cycle.`});
+    } else {
+      rejected.push(e);
+      states.push({mst:[...mst],total,candidate:e,rejected:[...rejected],active:[],
+        title:`Reject ${u}–${v}`,msg:`Reject <b>${u}–${v}</b> (weight ${w}) because adding it would create a <b>cycle</b>.`});
+    }
+    if(mst.length===V.length-1) break;
+  }
+  states.push({mst:[...mst],total,candidate:null,rejected:[...rejected],active:[],
+    title:"MST Complete",msg:`All vertices are connected. The Minimum Spanning Tree has <b>${mst.length}</b> edges and total weight <b>${total}</b>.`});
+  return states;
+}
+
+
+function buildDijkstra(s){
+  let states=[], dist={}, prev={}, visited=new Set(), settledOrder=[];
+  V.forEach(v=>{dist[v]=Infinity;prev[v]=null});
+  dist[s]=0;
+
+  states.push({
+    mst:[], total:0, candidate:null, rejected:[], active:[s], path:[],
+    distances:{...dist}, settled:[], candidates:[],
+    title:"Start",
+    msg:`Start at <b>${s}</b>. Dijkstra's algorithm will find the shortest distance from <b>${s}</b> to <b>every other vertex</b>.`
+  });
+
+  while(visited.size<V.length){
+    let u=null, best=Infinity;
+    for(const v of V){
+      if(!visited.has(v) && dist[v]<best){best=dist[v];u=v}
+    }
+    if(u===null) break;
+
+    visited.add(u);
+    settledOrder.push(u);
+
+    const relaxable=edges.filter(e=>{
+      const other=e[0]===u?e[1]:(e[1]===u?e[0]:null);
+      return other!==null && !visited.has(other);
+    });
+
+    states.push({
+      mst:[], total:dist[u], candidate:null, rejected:[], active:[...visited],
+      path:[], distances:{...dist}, settled:[...settledOrder],
+      candidates:relaxable.map(e=>[...e]),
+      title:`Settle ${u}`,
+      msg:`Choose <b>${u}</b> because it has the smallest tentative distance (${dist[u]}). The <b>orange dashed edges</b> are its candidate edges.`
+    });
+
+    for(const e of relaxable){
+      const v=e[0]===u?e[1]:e[0], w=e[2];
+      const nd=dist[u]+w;
+      if(nd<dist[v]){
+        const old=dist[v];
+        dist[v]=nd; prev[v]=u;
+        states.push({
+          mst:[], total:nd, candidate:e, rejected:[], active:[...visited],
+          path:[], distances:{...dist}, settled:[...settledOrder],
+          candidates:relaxable.map(x=>[...x]),
+          title:`Relax ${u}–${v}`,
+          msg:`Relax <b>${u}–${v}</b>: ${dist[u]} + ${w} = <b>${nd}</b>${old===Infinity?" (new tentative distance)":` (improves ${old})`}.`
+        });
+      } else {
+        states.push({
+          mst:[], total:dist[v], candidate:e, rejected:[e], active:[...visited],
+          path:[], distances:{...dist}, settled:[...settledOrder],
+          candidates:relaxable.map(x=>[...x]),
+          title:`Keep ${v}'s distance`,
+          msg:`Through <b>${u}–${v}</b>, the distance would be ${nd}, which is not smaller than the current distance ${dist[v]}.`
+        });
+      }
+    }
+  }
+
+  // Build the shortest-path tree from the final predecessor relationships.
+  const shortestEdges=[];
+  for(const v of V){
+    if(v!==s && prev[v]) shortestEdges.push([prev[v],v]);
+  }
+
+  states.push({
+    mst:[], total:0, candidate:null, rejected:[], active:[...visited],
+    path:shortestEdges, distances:{...dist}, settled:[...settledOrder],
+    candidates:[],
+    title:"All Shortest Paths Complete",
+    msg:`Dijkstra's algorithm is complete. The shortest distances from <b>${s}</b> to all reachable vertices are shown beside the vertices. The <b>purple edges</b> form the shortest-path tree.`
+  });
+  return states;
+}
+
+function buildPath(prev,s,d){
+  if(s===d) return [];
+  let p=[], cur=d, guard=0;
+  while(cur && cur!==s && guard++<V.length+1){
+    const u=prev[cur]; if(!u) return [];
+    p.push([u,cur]);
+    cur=u;
+  }
+  return cur===s?p:[];
+}
+
+function render(){
+  const st=history[idx] || {};
+  const edgesG=document.getElementById("edges"), weightsG=document.getElementById("weights"), nodesG=document.getElementById("nodes");
+  edgesG.innerHTML=""; weightsG.innerHTML=""; nodesG.innerHTML="";
+  // Determine all edges that are eligible candidates at the current step.
+  // Prim: all edges crossing from the current MST set to an unvisited vertex.
+  // Kruskal: the current edge under consideration is the candidate.
+  let candidateKeys = new Set();
+  if(algo==="prim" && st.active && st.active.length){
+    const activeSet=new Set(st.active);
+    for(const e of edges){
+      const crosses=(activeSet.has(e[0])&&!activeSet.has(e[1])) ||
+                    (activeSet.has(e[1])&&!activeSet.has(e[0]));
+      if(crosses && !(st.mst||[]).some(x=>key(x[0],x[1])===key(e[0],e[1])))
+        candidateKeys.add(key(e[0],e[1]));
+    }
+  } else if(algo==="kruskal" && st.candidate){
+    candidateKeys.add(key(st.candidate[0],st.candidate[1]));
+  } else if(algo==="dijkstra" && st.candidates){
+    for(const e of st.candidates) candidateKeys.add(key(e[0],e[1]));
+  }
+
+  for(const [u,v,w] of edges){
+    const [x1,y1]=pos[u], [x2,y2]=pos[v];
+    const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+    ln.setAttribute("x1",x1);ln.setAttribute("y1",y1);ln.setAttribute("x2",x2);ln.setAttribute("y2",y2);
+    const k=key(u,v);
+    ln.classList.add("edge");
+    if((st.path||[]).some(e=>key(e[0],e[1])===k)) ln.classList.add("path");
+    else if((st.mst||[]).some(e=>key(e[0],e[1])===k)) ln.classList.add("selected");
+    else if((st.rejected||[]).some(e=>key(e[0],e[1])===k)) ln.classList.add("rejected");
+    else if(candidateKeys.has(k)) ln.classList.add("candidate"); edgesG.appendChild(ln);
+    const tx=document.createElementNS("http://www.w3.org/2000/svg","text");
+    tx.setAttribute("x",(x1+x2)/2);tx.setAttribute("y",(y1+y2)/2-9);tx.classList.add("weight");tx.textContent=w;
+    weightsG.appendChild(tx);
+  }
+  for(const u of V){
+    const [x,y]=pos[u];
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",29);
+    if((st.active||[]).includes(u)) c.classList.add("mst");
+    c.classList.add("node");nodesG.appendChild(c);
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",x);t.setAttribute("y",y);t.classList.add("nodeText");t.textContent=u;nodesG.appendChild(t);
+    if(algo==="dijkstra" && st.distances){
+      const d=document.createElementNS("http://www.w3.org/2000/svg","text");
+      d.setAttribute("x",x);d.setAttribute("y",y+49);
+      d.setAttribute("font-size","14"); d.setAttribute("font-weight","700");
+      d.setAttribute("text-anchor","middle"); d.setAttribute("fill","#475569");
+      d.textContent = st.distances[u]===Infinity ? "∞" : st.distances[u];
+      nodesG.appendChild(d);
+    }
+  }
+  document.getElementById("stepTitle").innerHTML=st.title||"Ready";
+  document.getElementById("message").innerHTML=st.msg||"Choose an algorithm and click <b>Next Step</b>. Decisions will appear in the log one step at a time.";
+  document.getElementById("stepNo").textContent=idx;
+  document.getElementById("total").textContent=st.total||0;
+  document.getElementById("totalLabel").textContent = algo==="dijkstra" ? "Current distance" : "MST weight";
+  const log=document.getElementById("log"); log.innerHTML="";
+  let rows=[];
+  // Show only decisions that have actually been reached.
+  // Future decisions remain hidden until the user clicks Next Step.
+  for(let i=1;i<=idx && i<history.length;i++){
+    const s=history[i];
+    if(!s.candidate) continue;
+    const e=s.candidate;
+    if(algo==="dijkstra"){
+      const rejected=(s.rejected||[]).some(x=>key(x[0],x[1])===key(e[0],e[1]));
+      rows.push(`<tr><td>${i}</td><td>${e[0]}–${e[1]}</td><td>${e[2]}</td><td class="${rejected?'no':'yes'}">${rejected?'KEEP':'RELAX'}</td><td>${rejected?'No shorter distance found':'Tentative distance updated'}</td></tr>`);
+    } else {
+      const selected=s.mst.some(x=>key(x[0],x[1])===key(e[0],e[1]));
+      let reason = selected
+        ? (algo==="prim" ? "Smallest edge connecting to an unvisited vertex" : "Does not create a cycle")
+        : "Creates a cycle";
+      rows.push(`<tr><td>${i}</td><td>${e[0]}–${e[1]}</td><td>${e[2]}</td><td class="${selected?'yes':'no'}">${selected?'SELECT':'REJECT'}</td><td>${reason}</td></tr>`);
+    }
+  }
+  log.innerHTML=rows.join("");
+}
+function reset(){
+  if(algo==="prim") history=buildPrim(start);
+  else if(algo==="kruskal") history=buildKruskal();
+  else history=buildDijkstra(start);
+  idx=0;render();
+}
+document.getElementById("next").onclick=()=>{if(idx<history.length-1){idx++;render()}};
+document.getElementById("prev").onclick=()=>{if(idx>0){idx--;render()}};
+document.getElementById("reset").onclick=reset;
+document.getElementById("algo").onchange=e=>{
+  algo=e.target.value;
+  document.getElementById("startWrap").style.display="inline-block";
+  document.getElementById("destWrap").style.display="none";
+  document.getElementById("decisionHead").textContent=algo==="dijkstra"?"Action":"Decision";
+  reset();
+};
+document.getElementById("start").onchange=e=>{
+  start=e.target.value;
+  const d=document.getElementById("dest");
+  if(d.value===start) d.value=V.find(v=>v!==start)||start;
+  reset();
+};
+ 
+
+document.getElementById("toggleBuilder").onclick=()=>{
+  const b=document.getElementById("builderBody"), btn=document.getElementById("toggleBuilder");
+  const hidden=b.style.display==="none";
+  b.style.display=hidden?"block":"none"; btn.textContent=hidden?"Hide":"Show";
+};
+document.getElementById("generateGraph").onclick=()=>{
+  const msg=document.getElementById("builderMsg");
+  try{
+    parseGraph();
+    msg.textContent=`Graph generated: ${V.length} vertices, ${edges.length} edges.`;
+    msg.style.color="#15803d";
+    reset();
+  }catch(err){
+    msg.textContent=err.message;
+    msg.style.color="#b91c1c";
+  }
+};
+document.getElementById("sampleGraph").onclick=()=>{
+  document.getElementById("verticesInput").value="A,B,C,D,E";
+  document.getElementById("edgesInput").value="A-B=4, A-C=5, A-E=2, B-C=3, B-E=6, C-D=1, C-E=7, D-E=8";
+  document.getElementById("builderMsg").textContent="";
+  parseGraph(); reset();
+};
+
+parseGraph();
+function refreshSelectors(){
+  const s=document.getElementById("start");
+  s.innerHTML=V.map(v=>`<option>${v}</option>`).join("");
+  s.value=start;
+}
+refreshSelectors();
+document.getElementById("startWrap").style.display="inline-block";
+reset();
+</script>
+</body>
+</html>
